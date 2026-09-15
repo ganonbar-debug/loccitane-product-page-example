@@ -1,0 +1,286 @@
+bash
+
+python3 << 'PYEOF'
+import json
+with open('/home/claude/crops_b64.json') as f:
+    d = json.load(f)
+
+imgs = {k: f"data:image/jpeg;base64,{v}" for k,v in d.items()}
+
+# L'Occitane real layout:
+# LEFT COLUMN (~55% width):
+#   - Main large image (square, ~500px)
+#   - Below main: row of small thumbnails (horizontal strip)
+# RIGHT COLUMN (~45% width):
+#   - All product info
+
+# Thumb order: main hero first, then the 7 grid images
+thumb_order = ['main','r0c0','r0c1','r1c0','r1c1','r2c0','r2c1','r1c2']
+
+thumb_imgs_html = ""
+for i, key in enumerate(thumb_order):
+    active = ' active' if i == 0 else ''
+    thumb_imgs_html += f'<div class="thumb{active}" onclick="setMain(this,\'{imgs[key]}\')" role="button" tabindex="0"><img src="{imgs[key]}" alt="view {i+1}"></div>\n'
+
+html = f"""<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avocado & Mango Whipped Body Cream – L'Occitane</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+:root{{
+  --cream:#f5f0e8;--warm:#e8dfd0;--ochre:#c0965a;--deep:#2c2218;--mid:#6b5540;--light:#faf8f4;
+  --serif:'Cormorant Garamond',Georgia,serif;
+  --sans:'Jost','Helvetica Neue',sans-serif;
+}}
+body{{background:#fff;font-family:var(--sans);color:var(--deep)}}
+
+/* NAV */
+.nav{{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 40px;height:60px;border-bottom:1px solid #e5e0d8;
+  background:#fff;position:sticky;top:0;z-index:100;
+}}
+.logo{{font-family:var(--serif);font-size:19px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:var(--deep)}}
+.nav-links{{display:flex;gap:32px;font-size:11px;letter-spacing:1.5px;color:var(--mid);text-transform:uppercase;font-weight:400}}
+.nav-icons{{display:flex;gap:20px;font-size:13px;color:var(--mid)}}
+
+/* BREADCRUMB */
+.bc{{padding:11px 40px;font-size:11px;letter-spacing:0.5px;color:#999;background:#fff;border-bottom:1px solid #f0ebe2}}
+.bc span{{color:var(--deep)}}
+
+/* ── PRODUCT LAYOUT ── */
+/* Exact L'Occitane: left ~58%, right ~42% */
+.product-section{{display:flex;gap:0;background:#fff;max-width:1200px;margin:0 auto;padding:0 40px 48px}}
+
+/* LEFT: gallery */
+.gallery{{flex:0 0 58%;padding-top:24px;padding-right:40px}}
+.main-wrap{{width:100%;position:relative;background:#f7f4ef;border-radius:2px;overflow:hidden;margin-bottom:12px}}
+.main-wrap img{{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}}
+
+/* Thumbnails: horizontal strip below main image */
+.thumbs{{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}}
+.thumbs::-webkit-scrollbar{{height:3px}}
+.thumbs::-webkit-scrollbar-thumb{{background:var(--warm)}}
+.thumb{{
+  flex:0 0 72px;height:72px;border-radius:2px;overflow:hidden;cursor:pointer;
+  border:1.5px solid transparent;transition:border-color 0.15s;
+}}
+.thumb img{{width:100%;height:100%;object-fit:cover;display:block}}
+.thumb.active{{border-color:var(--deep)}}
+.thumb:hover:not(.active){{border-color:var(--ochre)}}
+
+/* RIGHT: product info */
+.info{{flex:0 0 42%;padding-top:24px;padding-left:8px}}
+.info-inner{{position:sticky;top:72px}}
+
+.brand-line{{font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--ochre);margin-bottom:8px;font-weight:400}}
+.prod-name{{font-family:var(--serif);font-size:30px;font-weight:300;line-height:1.2;margin-bottom:4px;color:var(--deep)}}
+.prod-desc-short{{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--mid);margin-bottom:16px;line-height:1.5}}
+
+.rating-row{{display:flex;align-items:center;gap:8px;margin-bottom:5px}}
+.stars{{color:#c0965a;font-size:13px;letter-spacing:1px}}
+.review-ct{{font-size:12px;color:var(--mid);border-bottom:0.5px solid #bbb;cursor:pointer}}
+
+.hr{{height:1px;background:#ede8df;margin:18px 0}}
+
+.price-wrap{{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}}
+.price{{font-size:26px;font-weight:300;letter-spacing:0.5px;color:var(--deep)}}
+.price-per{{font-size:12px;color:#999;margin-bottom:16px}}
+
+.sz-label{{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--mid);margin-bottom:9px;font-weight:500}}
+.sizes{{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}}
+.sz{{
+  padding:9px 20px;border:1px solid #ddd;border-radius:2px;
+  font-size:12px;font-family:var(--sans);cursor:pointer;background:#fff;
+  color:var(--mid);transition:all 0.15s;letter-spacing:0.5px;
+}}
+.sz.active{{background:var(--deep);color:#fff;border-color:var(--deep)}}
+.sz:hover:not(.active){{border-color:var(--mid)}}
+
+.btn-cart{{
+  width:100%;padding:15px 20px;background:var(--deep);color:#fff;border:none;
+  font-family:var(--sans);font-size:11px;letter-spacing:3px;text-transform:uppercase;
+  cursor:pointer;border-radius:2px;margin-bottom:10px;transition:background 0.2s;
+  font-weight:400;
+}}
+.btn-cart:hover{{background:#4a3828}}
+.btn-wish{{
+  width:100%;padding:13px;background:#fff;color:var(--deep);
+  border:1px solid var(--deep);font-family:var(--sans);font-size:11px;
+  letter-spacing:3px;text-transform:uppercase;cursor:pointer;border-radius:2px;
+  font-weight:400;
+}}
+
+.perks{{display:flex;gap:0;margin:18px 0}}
+.perk{{
+  flex:1;text-align:center;padding:12px 6px;
+  border:1px solid #ede8df;margin-right:8px;border-radius:2px;
+  font-size:11px;color:var(--mid);line-height:1.5;
+}}
+.perk:last-child{{margin-right:0}}
+.perk strong{{display:block;font-size:13px;font-weight:500;color:var(--deep);margin-bottom:2px}}
+
+.accordion{{border-top:1px solid #ede8df;margin-top:18px}}
+.acc-item{{border-bottom:1px solid #ede8df}}
+.acc-head{{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 0;cursor:pointer;font-size:11px;letter-spacing:1.5px;
+  text-transform:uppercase;font-weight:500;color:var(--deep);
+}}
+.acc-head .arr{{font-size:16px;color:var(--mid);transition:transform 0.2s}}
+.acc-head.open .arr{{transform:rotate(45deg)}}
+.acc-body{{display:none;padding:0 0 14px;font-size:13px;line-height:1.8;color:var(--mid)}}
+.acc-body.open{{display:block}}
+.tags{{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}}
+.tag{{padding:5px 12px;background:var(--cream);border-radius:20px;font-size:10px;letter-spacing:1px;color:var(--mid);text-transform:uppercase}}
+
+/* ── MOBILE responsive ── */
+@media(max-width:768px){{
+  .product-section{{flex-direction:column;padding:0 16px 32px}}
+  .gallery{{padding-right:0;padding-top:16px}}
+  .info{{padding-left:0;padding-top:16px}}
+  .info-inner{{position:static}}
+  .nav-links{{display:none}}
+}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="logo">L'Occitane</div>
+  <div class="nav-links">
+    <span>Skincare</span><span>Body</span><span>Face</span><span>Gifts</span><span>Stores</span>
+  </div>
+  <div class="nav-icons">
+    <span title="Search" style="cursor:pointer">&#128269;</span>
+    <span title="Wishlist" style="cursor:pointer">&#9825;</span>
+    <span title="Bag" style="cursor:pointer">&#128722;</span>
+  </div>
+</nav>
+
+<div class="bc">
+  Home / Body / <span>Avocado &amp; Mango Whipped Body Cream</span>
+</div>
+
+<div class="product-section">
+
+  <!-- LEFT: Gallery -->
+  <div class="gallery">
+    <div class="main-wrap">
+      <img id="mainImg" src="{imgs['main']}" alt="Avocado & Mango Whipped Body Cream">
+    </div>
+    <div class="thumbs" id="thumbStrip">
+      {thumb_imgs_html}
+    </div>
+  </div>
+
+  <!-- RIGHT: Info -->
+  <div class="info">
+    <div class="info-inner">
+      <div class="brand-line">Avocado &amp; Mango Collection</div>
+      <div class="prod-name">Avocado &amp; Mango<br>Whipped Body Cream</div>
+      <div class="prod-desc-short">48-hour deep moisture · Soft skin feel</div>
+
+      <div class="rating-row">
+        <span class="stars">★★★★★</span>
+        <span class="review-ct">328 reviews</span>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="price-wrap"><span class="price">₪ 148</span></div>
+      <div class="price-per">200 ml | ₪ 74.00 per 100 ml</div>
+
+      <div class="sz-label">Size</div>
+      <div class="sizes">
+        <button class="sz" onclick="selectSz(this)">150 ml</button>
+        <button class="sz active" onclick="selectSz(this)">200 ml</button>
+        <button class="sz" onclick="selectSz(this)">500 ml</button>
+      </div>
+
+      <button class="btn-cart">Add to Bag</button>
+      <button class="btn-wish">♡ &nbsp; Add to Wishlist</button>
+
+      <div class="perks">
+        <div class="perk"><strong>48H</strong>Moisture</div>
+        <div class="perk"><strong>Vegan</strong>Formula</div>
+        <div class="perk"><strong>Tropical</strong>Scent</div>
+      </div>
+
+      <div class="accordion">
+        <div class="acc-item">
+          <div class="acc-head" onclick="toggleAcc(this)">
+            <span>About this product</span><span class="arr">+</span>
+          </div>
+          <div class="acc-body open">
+            An airy, whipped texture that melts instantly into skin. Enriched with cold-pressed avocado oil and mango butter for lasting nourishment. Leaves skin velvety-soft with a subtle tropical fragrance.
+            <div class="tags">
+              <span class="tag">Mango Butter</span>
+              <span class="tag">Avocado Oil</span>
+              <span class="tag">Shea</span>
+              <span class="tag">Vegan</span>
+            </div>
+          </div>
+        </div>
+        <div class="acc-item">
+          <div class="acc-head" onclick="toggleAcc(this)">
+            <span>How to use</span><span class="arr">+</span>
+          </div>
+          <div class="acc-body">
+            Apply generously to body after showering. Massage in circular motions until absorbed. Use daily for best results. Suitable for all skin types.
+          </div>
+        </div>
+        <div class="acc-item">
+          <div class="acc-head" onclick="toggleAcc(this)">
+            <span>Key ingredients</span><span class="arr">+</span>
+          </div>
+          <div class="acc-body">
+            Cold-pressed Avocado Oil — rich in fatty acids and vitamins. Mango Seed Butter — intense nourishment and softness. Organic Shea Butter — deep moisture barrier.
+          </div>
+        </div>
+        <div class="acc-item">
+          <div class="acc-head" onclick="toggleAcc(this)">
+            <span>Shipping &amp; returns</span><span class="arr">+</span>
+          </div>
+          <div class="acc-body">
+            Free shipping on orders over ₪ 199. Standard delivery 2–4 business days. Free returns within 30 days of purchase.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function setMain(el, src) {{
+  document.getElementById('mainImg').src = src;
+  document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}}
+function selectSz(btn) {{
+  document.querySelectorAll('.sz').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}}
+function toggleAcc(head) {{
+  const body = head.nextElementSibling;
+  const isOpen = body.classList.contains('open');
+  document.querySelectorAll('.acc-body').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.acc-head').forEach(h => h.classList.remove('open'));
+  if (!isOpen) {{ body.classList.add('open'); head.classList.add('open'); }}
+}}
+</script>
+</body>
+</html>"""
+
+with open('/mnt/user-data/outputs/loccitane_product_page.html', 'w', encoding='utf-8') as f:
+    f.write(html)
+print('Done, size:', len(html))
+PYEOF
+Output
+
+Done, size: 403234
